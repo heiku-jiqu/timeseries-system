@@ -1,0 +1,15 @@
+name: metrics-system
+
+services:
+  questdb:
+    image: questdb/questdb:7.3.3
+    ports:
+      - 9000:9000 # REST API and Web Console
+      - 9009:9009 # InfluxDB line protocol
+      - 8812:8812 # Postgres wire protocol
+      - 9003:9003 # Min health server
+    volumes:
+      - datastore:/var/lib/questdb
+
+volumes:
+  datastore:
