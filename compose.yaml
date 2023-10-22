@@ -11,6 +11,12 @@ services:
       - 9003:9003 # Min health server
     volumes:
       - questdbstore:/var/lib/questdb
+    environment:
+      - QDB_PG_USER=admin
+      - QDB_PG_PASSWORD=quest
+      - QDB_PG_READONLY_USER_ENABLED=true
+      - QDB_PG_READONLY_USER=user
+      - QDB_PG_READONLY_PASSWORD=quest
   grafana:
     image: grafana/grafana-oss
     restart: unless-stopped
@@ -18,6 +24,7 @@ services:
       - 3000:3000
     volumes:
       - grafanastore:/var/lib/grafana
+      - ./config/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
 
 volumes:
   questdbstore:
