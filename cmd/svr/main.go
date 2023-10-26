@@ -6,12 +6,40 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 )
+
+const version = "1.0.0"
 
 type application struct {
 	errorLog *log.Logger
 	infoLog  *log.Logger
+}
+
+func (app *application) logMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		app.infoLog.Printf("%s - %s %s %s", r.RemoteAddr, r.Proto, r.Method, r.URL.RequestURI())
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (app *application) metricsMiddleware(next http.Handler) http.Handler {
+	totalRequestsReceived := expvar.NewInt("total_requests_received")
+	totalResponsesSent := expvar.NewInt("total_responses_sent")
+	totalProcessingTimeMicroseconds := expvar.NewInt("total_processing_time_microsecs")
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		totalRequestsReceived.Add(1)
+
+		next.ServeHTTP(w, r)
+
+		totalResponsesSent.Add(1)
+
+		duration := time.Since(start).Microseconds()
+		totalProcessingTimeMicroseconds.Add(duration)
+	})
 }
 
 func (app *application) routes() http.Handler {
@@ -20,10 +48,18 @@ func (app *application) routes() http.Handler {
 		fmt.Fprint(w, "hello world!")
 	})
 	router.Handle("/metrics", expvar.Handler())
-	return router
+	return app.metricsMiddleware(app.logMiddleware(router))
 }
 
 func main() {
+	expvar.NewString("version").Set(version)
+	expvar.Publish("goroutines", expvar.Func(func() interface{} {
+		return runtime.NumGoroutine()
+	}))
+	expvar.Publish("timestamp", expvar.Func(func() interface{} {
+		return time.Now().Unix()
+	}))
+
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	app := application{
