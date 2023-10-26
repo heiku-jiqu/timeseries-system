@@ -1,6 +1,7 @@
 package main
 
 import (
+	"expvar"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,6 +19,7 @@ func (app *application) routes() http.Handler {
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "hello world!")
 	})
+	router.Handle("/metrics", expvar.Handler())
 	return router
 }
 
