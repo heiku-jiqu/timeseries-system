@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -49,7 +48,7 @@ func main() {
     "type": "subscribe",
     "channels": [
         {
-            "name": "heartbeat",
+            "name": "ticker",
             "product_ids": [
                 "ETH-USD"
             ]
