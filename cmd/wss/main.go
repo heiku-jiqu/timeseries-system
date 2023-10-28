@@ -47,7 +47,11 @@ func ParseTickerJSON(msg []byte) (Ticker, error) {
 	return ticker, nil
 }
 
-const websocketURL string = "wss://ws-feed.exchange.coinbase.com"
+var (
+	websocketURL        string   = "wss://ws-feed.exchange.coinbase.com"
+	subscriptionChannel string   = "ticker"
+	productIDs          []string = []string{"ETH-USD"}
+)
 
 func main() {
 	interrupt := make(chan os.Signal, 1)
@@ -69,7 +73,7 @@ func main() {
 				log.Println("read:", err)
 				return
 			}
-			log.Printf("recv: %s", message)
+
 			if strings.Contains(string(message), `"type":"ticker"`) {
 				ticker, err := ParseTickerJSON(message)
 				if err != nil {
@@ -77,24 +81,25 @@ func main() {
 					return
 				}
 				log.Printf("recv: parsed ticker: %v", ticker)
+			} else {
+				log.Printf("recv: %s", message)
 			}
 		}
 	}()
 
-	// payload := JSONpayload{"subscribe", []string{"ETH-USD"}, []string{"ticker"}}
-	// wsjson.Write(ctx, c, payload)
-	jsonPayload := []byte(`{
+	jsonPayload := []byte(fmt.Sprintf(`{
     "type": "subscribe",
     "channels": [
         {
-            "name": "ticker",
+            "name": %q,
             "product_ids": [
-                "ETH-USD"
+                %s
             ]
         }
     ]
-}`)
+}`, subscriptionChannel, `"`+strings.Join(productIDs, `","`)+`"`))
 	fmt.Printf("%s", string(jsonPayload))
+
 	err = c.WriteMessage(websocket.TextMessage, jsonPayload)
 	if err != nil {
 		log.Fatal(err)
@@ -106,12 +111,6 @@ func main() {
 		select {
 		case <-done:
 			return
-		// case t := <-ticker.C:
-		// err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
-		// if err != nil {
-		// 	log.Println("write:", err)
-		// 	return
-		// }
 		case <-interrupt:
 			log.Println("interrupt")
 
