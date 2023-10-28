@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -67,12 +68,12 @@ func main() {
 		select {
 		case <-done:
 			return
-		case t := <-ticker.C:
-			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
-			if err != nil {
-				log.Println("write:", err)
-				return
-			}
+		// case t := <-ticker.C:
+		// err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
+		// if err != nil {
+		// 	log.Println("write:", err)
+		// 	return
+		// }
 		case <-interrupt:
 			log.Println("interrupt")
 
