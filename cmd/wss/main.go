@@ -23,7 +23,31 @@ var (
 	productIDs          []string = []string{"ETH-USD"}
 )
 
-func receive(c *websocket.Conn, done chan<- struct{}) {
+func main() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer c.Close()
+
+	done := make(chan struct{})
+
+	go receiveDatastream(c, done)
+
+	err = initDatastream(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	waitForInterrupt(c, done, interrupt)
+}
+
+// Receives to incoming messaages from `c`
+// Sends done channel when finished receiving
+func receiveDatastream(c *websocket.Conn, done chan<- struct{}) {
 	defer close(done)
 	for {
 		_, message, err := c.ReadMessage()
@@ -45,6 +69,7 @@ func receive(c *websocket.Conn, done chan<- struct{}) {
 	}
 }
 
+// Sends the initial websocket message to subscribe to tickers
 func initDatastream(c *websocket.Conn) error {
 	jsonPayload := []byte(fmt.Sprintf(`{
     "type": "subscribe",
@@ -63,7 +88,9 @@ func initDatastream(c *websocket.Conn) error {
 	return err
 }
 
-func listenDatastream(c *websocket.Conn, done <-chan struct{}, interrupt <-chan os.Signal) {
+// Waits for signal from `done` or `interrupt` before returning.
+// If `interrupted`, gracefully close `c`.
+func waitForInterrupt(c *websocket.Conn, done <-chan struct{}, interrupt <-chan os.Signal) {
 	for {
 		select {
 		case <-done:
@@ -85,26 +112,4 @@ func listenDatastream(c *websocket.Conn, done <-chan struct{}, interrupt <-chan 
 			return
 		}
 	}
-}
-
-func main() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-	defer c.Close()
-
-	done := make(chan struct{})
-
-	go receive(c, done)
-
-	err = initDatastream(c)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	listenDatastream(c, done, interrupt)
 }
