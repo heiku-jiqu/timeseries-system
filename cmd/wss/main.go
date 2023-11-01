@@ -45,20 +45,7 @@ func receive(c *websocket.Conn, done chan<- struct{}) {
 	}
 }
 
-func main() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-	}
-	defer c.Close()
-
-	done := make(chan struct{})
-
-	go receive(c, done)
-
+func initDatastream(c *websocket.Conn) error {
 	jsonPayload := []byte(fmt.Sprintf(`{
     "type": "subscribe",
     "channels": [
@@ -72,11 +59,11 @@ func main() {
 }`, subscriptionChannel, `"`+strings.Join(productIDs, `","`)+`"`))
 	fmt.Printf("%s", string(jsonPayload))
 
-	err = c.WriteMessage(websocket.TextMessage, jsonPayload)
-	if err != nil {
-		log.Fatal(err)
-	}
+	err := c.WriteMessage(websocket.TextMessage, jsonPayload)
+	return err
+}
 
+func listenDatastream(c *websocket.Conn, done <-chan struct{}, interrupt <-chan os.Signal) {
 	for {
 		select {
 		case <-done:
@@ -98,4 +85,26 @@ func main() {
 			return
 		}
 	}
+}
+
+func main() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer c.Close()
+
+	done := make(chan struct{})
+
+	go receive(c, done)
+
+	err = initDatastream(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	listenDatastream(c, done, interrupt)
 }
