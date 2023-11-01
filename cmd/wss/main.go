@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	qdb "github.com/questdb/go-questdb-client/v2"
 )
 
 type JSONpayload struct {
@@ -27,6 +29,11 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
+	ctx := context.TODO()
+	sender, err := qdb.NewLineSender(ctx)
+
+	tickerModel := TickerModel{sender}
+
 	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
@@ -35,7 +42,13 @@ func main() {
 
 	done := make(chan struct{})
 
-	go receiveDatastream(c, done)
+	go receiveDatastream(c, done, func(t Ticker) {
+		log.Printf("recv: parsed ticker: %v", t)
+		err := tickerModel.Insert(t)
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
 
 	err = initDatastream(c)
 	if err != nil {
@@ -47,7 +60,7 @@ func main() {
 
 // Receives to incoming messaages from `c`
 // Sends done channel when finished receiving
-func receiveDatastream(c *websocket.Conn, done chan<- struct{}) {
+func receiveDatastream(c *websocket.Conn, done chan<- struct{}, callback func(Ticker)) {
 	defer close(done)
 	for {
 		_, message, err := c.ReadMessage()
@@ -62,7 +75,7 @@ func receiveDatastream(c *websocket.Conn, done chan<- struct{}) {
 				log.Println("read:", err)
 				return
 			}
-			log.Printf("recv: parsed ticker: %v", ticker)
+			callback(ticker)
 		} else {
 			log.Printf("recv: %s", message)
 		}
