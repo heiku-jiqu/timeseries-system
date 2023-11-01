@@ -77,8 +77,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-done:
