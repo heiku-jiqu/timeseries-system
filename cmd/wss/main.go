@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -21,11 +22,12 @@ type JSONpayload struct {
 
 var (
 	websocketURL        string   = "wss://ws-feed.exchange.coinbase.com"
-	subscriptionChannel string   = "ticker"
+	subscriptionChannel *string  = flag.String("channel", "ticker", "Specify `channel` to listen to. One of ticker or ticker_batch.")
 	productIDs          []string = []string{"ETH-USD"}
 )
 
 func main() {
+	flag.Parse()
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
@@ -94,7 +96,7 @@ func initDatastream(c *websocket.Conn) error {
             ]
         }
     ]
-}`, subscriptionChannel, `"`+strings.Join(productIDs, `","`)+`"`))
+}`, *subscriptionChannel, `"`+strings.Join(productIDs, `","`)+`"`))
 	fmt.Printf("%s", string(jsonPayload))
 
 	err := c.WriteMessage(websocket.TextMessage, jsonPayload)
