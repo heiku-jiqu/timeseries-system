@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -23,7 +24,7 @@ type JSONpayload struct {
 var (
 	websocketURL        string   = "wss://ws-feed.exchange.coinbase.com"
 	subscriptionChannel *string  = flag.String("channel", "ticker", "Specify `channel` to listen to. One of ticker or ticker_batch.")
-	qdbAddr             *string  = flag.String("qdb", "127.0.0.1:9009", "Specify `url` of QuestDB")
+	qdbAddr             *string  = flag.String("qdb", "127.0.0.1:9009", "Specify `url` of QuestDB's Influx Line Protocol")
 	productIDs          []string = []string{"ETH-USD"}
 )
 
@@ -32,6 +33,7 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
+	checkQdbILPConn(*qdbAddr)
 	ctx := context.TODO()
 	sender, err := qdb.NewLineSender(ctx, qdb.WithAddress(*qdbAddr))
 
@@ -59,6 +61,14 @@ func main() {
 	}
 
 	waitForInterrupt(c, done, interrupt)
+}
+
+func checkQdbILPConn(addr string) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		log.Fatalf("could not connect to QuestDB InfluxLineProtocol: %v", err)
+	}
+	defer conn.Close()
 }
 
 // Receives to incoming messaages from `c`
