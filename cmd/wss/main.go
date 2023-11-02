@@ -30,6 +30,9 @@ var (
 
 func main() {
 	flag.Parse()
+	if len(flag.Args()) > 0 {
+		productIDs = flag.Args()
+	}
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
