@@ -23,6 +23,7 @@ type JSONpayload struct {
 var (
 	websocketURL        string   = "wss://ws-feed.exchange.coinbase.com"
 	subscriptionChannel *string  = flag.String("channel", "ticker", "Specify `channel` to listen to. One of ticker or ticker_batch.")
+	qdbAddr             *string  = flag.String("qdb", "127.0.0.1:9009", "Specify `url` of QuestDB")
 	productIDs          []string = []string{"ETH-USD"}
 )
 
@@ -32,7 +33,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	ctx := context.TODO()
-	sender, err := qdb.NewLineSender(ctx)
+	sender, err := qdb.NewLineSender(ctx, qdb.WithAddress(*qdbAddr))
 
 	tickerModel := TickerModel{sender}
 
