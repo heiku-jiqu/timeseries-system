@@ -40,8 +40,6 @@ func main() {
 	ctx := context.TODO()
 	sender, err := qdb.NewLineSender(ctx, qdb.WithAddress(*qdbAddr))
 
-	tickerModel := TickerModel{sender}
-
 	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
 		log.Fatal("dial:", err)
@@ -50,6 +48,7 @@ func main() {
 
 	done := make(chan struct{})
 
+	tickerModel := TickerModel{sender}
 	go receiveDatastream(c, done, func(t Ticker) {
 		log.Printf("recv: parsed ticker: %v", t)
 		err := tickerModel.Insert(t)
