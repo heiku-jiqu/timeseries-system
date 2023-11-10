@@ -68,3 +68,7 @@ func ParseTickerJSON(msg []byte) (Ticker, error) {
 	}
 	return ticker, nil
 }
+
+func (t Ticker) toJSON() ([]byte, error) {
+	return json.Marshal(t)
+}

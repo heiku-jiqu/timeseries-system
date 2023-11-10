@@ -49,9 +49,14 @@ func main() {
 	done := make(chan struct{})
 
 	tickerModel := TickerModel{sender}
+	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
 	go receiveDatastream(c, done, func(t Ticker) {
 		log.Printf("recv: parsed ticker: %v", t)
 		err := tickerModel.Insert(t)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = tickerKafka.Write(ctx, t)
 		if err != nil {
 			log.Fatal(err)
 		}
