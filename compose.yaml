@@ -58,6 +58,26 @@ services:
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on: 
+      - kafka-broker
+    volumes:
+      - ./config/kafka/init.sh:/home/appuser/init.sh
+    entrypoint: ['/bin/bash', '-c']
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server broker:29092 --list && {
+        echo -e 'Creating kafka topics' &&
+        exec ./init.sh &&
+
+        echo -e 'Created topics:'
+        kafka-topics --bootstrap-server broker:29092 --list
+      }
+
+      "
+
 
 volumes:
   questdbstore:
