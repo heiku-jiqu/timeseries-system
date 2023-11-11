@@ -51,7 +51,9 @@ func main() {
 	flushTicker := time.NewTicker(2 * time.Second)
 	defer flushTicker.Stop()
 	tickerModel := TickerModel{sender, flushTicker}
-	// tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
+	kafkaWriter := NewDefaultKafkaWriter()
+	defer kafkaWriter.Close()
+	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
 
 	done := make(chan struct{})
 	go receiveDatastream(c, done, func(t Ticker) {
@@ -60,10 +62,10 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		// err = tickerKafka.Write(ctx, t)
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
+		err = tickerKafka.Write(ctx, t)
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 
 	err = initDatastream(c)
