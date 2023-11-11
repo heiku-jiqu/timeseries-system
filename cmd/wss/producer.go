@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -31,6 +32,7 @@ func (k *TickerKafka) Write(ctx context.Context, tickers ...Ticker) error {
 			Value: payload,
 		}
 	}
+	fmt.Printf("payloads: %v\n", string(payloads[0].Value))
 	err := k.w.WriteMessages(ctx, payloads...)
 	if err != nil {
 		return err

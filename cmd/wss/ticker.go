@@ -9,7 +9,8 @@ import (
 )
 
 type TickerModel struct {
-	db *qdb.LineSender
+	db          *qdb.LineSender
+	FlushTicker *time.Ticker
 }
 
 type Ticker struct {
@@ -33,7 +34,7 @@ type Ticker struct {
 }
 
 func (t TickerModel) Insert(ticker Ticker) error {
-	ctx := context.Background()
+	ctx := context.TODO()
 	err := t.db.Table("ticker").
 		Symbol("type", ticker.Type).
 		Symbol("product_id", ticker.ProductID).
@@ -56,8 +57,14 @@ func (t TickerModel) Insert(ticker Ticker) error {
 		return err
 	}
 
-	err = t.db.Flush(ctx)
-	return err
+	select {
+	case <-t.FlushTicker.C:
+		err = t.db.Flush(ctx)
+		return err
+	default:
+	}
+
+	return nil
 }
 
 func ParseTickerJSON(msg []byte) (Ticker, error) {

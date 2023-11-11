@@ -25,7 +25,7 @@ var (
 	websocketURL        string   = "wss://ws-feed.exchange.coinbase.com"
 	subscriptionChannel *string  = flag.String("channel", "ticker", "Specify `channel` to listen to. One of ticker or ticker_batch.")
 	qdbAddr             *string  = flag.String("qdb", "127.0.0.1:9009", "Specify `url` of QuestDB's Influx Line Protocol")
-	productIDs          []string = []string{"ETH-USD"}
+	productIDs          []string = []string{"ETH-USD", "BTC-USD"}
 )
 
 func main() {
@@ -39,6 +39,8 @@ func main() {
 	checkQdbILPConn(*qdbAddr)
 	ctx := context.TODO()
 	sender, err := qdb.NewLineSender(ctx, qdb.WithAddress(*qdbAddr))
+	defer sender.Flush(ctx)
+	defer sender.Close()
 
 	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
@@ -46,20 +48,22 @@ func main() {
 	}
 	defer c.Close()
 
-	done := make(chan struct{})
+	flushTicker := time.NewTicker(2 * time.Second)
+	defer flushTicker.Stop()
+	tickerModel := TickerModel{sender, flushTicker}
+	// tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
 
-	tickerModel := TickerModel{sender}
-	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
+	done := make(chan struct{})
 	go receiveDatastream(c, done, func(t Ticker) {
 		log.Printf("recv: parsed ticker: %v", t)
 		err := tickerModel.Insert(t)
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = tickerKafka.Write(ctx, t)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// err = tickerKafka.Write(ctx, t)
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
 	})
 
 	err = initDatastream(c)
@@ -89,6 +93,7 @@ func receiveDatastream(c *websocket.Conn, done chan<- struct{}, callback func(Ti
 			return
 		}
 
+		log.Printf("recv: %s", message)
 		if strings.Contains(string(message), `"type":"ticker"`) {
 			ticker, err := ParseTickerJSON(message)
 			if err != nil {
