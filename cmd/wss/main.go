@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -56,7 +57,11 @@ func main() {
 	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
 
 	done := make(chan struct{})
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+	wg.Add(1)
 	go receiveDatastream(c, done, func(t Ticker) {
+		defer wg.Done()
 		log.Printf("recv: parsed ticker: %v", t)
 		err := tickerModel.Insert(t)
 		if err != nil {
