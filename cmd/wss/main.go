@@ -67,9 +67,9 @@ func main() {
 		receiveDatastream(c, done, tickerChan)
 	}()
 
-	qdbChan := make(chan Ticker, 200)
+	qdbChan := make(chan Ticker, 1)
 	defer close(qdbChan)
-	kafkaChan := make(chan Ticker, 200)
+	kafkaChan := make(chan Ticker, 10)
 	defer close(kafkaChan)
 
 	wg.Add(1)
