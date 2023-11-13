@@ -56,22 +56,62 @@ func main() {
 	defer kafkaWriter.Close()
 	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
 
+	tickerChan := make(chan Ticker, 200)
 	done := make(chan struct{})
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
+
 	wg.Add(1)
-	go receiveDatastream(c, done, func(t Ticker) {
+	go func() {
 		defer wg.Done()
-		log.Printf("recv: parsed ticker: %v", t)
-		err := tickerModel.Insert(t)
-		if err != nil {
-			log.Fatal(err)
+		receiveDatastream(c, done, tickerChan)
+	}()
+
+	qdbChan := make(chan Ticker, 200)
+	defer close(qdbChan)
+	kafkaChan := make(chan Ticker, 200)
+	defer close(kafkaChan)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for t := range tickerChan {
+			log.Printf("qdbChan: %v, kafkaChan: %v", len(qdbChan), len(kafkaChan))
+			qdbChan <- t
+			kafkaChan <- t
 		}
-		err = tickerKafka.Write(ctx, t)
-		if err != nil {
-			log.Fatal(err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for t := range qdbChan {
+			err := tickerModel.Insert(t)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
-	})
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		buf := make([]Ticker, 10)
+		repeater := time.NewTicker(2 * time.Second)
+
+		for t := range kafkaChan {
+			buf = append(buf, t)
+			select {
+			case <-repeater.C:
+				err = tickerKafka.Write(ctx, buf...)
+				if err != nil {
+					log.Fatal(err)
+				}
+				buf = buf[:0]
+			default:
+			}
+		}
+	}()
 
 	err = initDatastream(c)
 	if err != nil {
@@ -90,9 +130,11 @@ func checkQdbILPConn(addr string) {
 }
 
 // Receives to incoming messaages from `c`
-// Sends done channel when finished receiving
-func receiveDatastream(c *websocket.Conn, done chan<- struct{}, callback func(Ticker)) {
+// Close done channel when finished receiving
+// Close ch channel when finished receiving
+func receiveDatastream(c *websocket.Conn, done chan<- struct{}, ch chan<- Ticker) {
 	defer close(done)
+	defer close(ch)
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
@@ -107,7 +149,7 @@ func receiveDatastream(c *websocket.Conn, done chan<- struct{}, callback func(Ti
 				log.Println("read:", err)
 				return
 			}
-			callback(ticker)
+			ch <- ticker
 		} else {
 			log.Printf("recv: %s", message)
 		}
