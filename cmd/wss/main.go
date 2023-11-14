@@ -68,15 +68,15 @@ func main() {
 	}()
 
 	qdbChan := make(chan Ticker, 1)
-	defer close(qdbChan)
 	kafkaChan := make(chan Ticker, 10)
-	defer close(kafkaChan)
 
 	wg.Add(1)
 	go func() {
+		defer close(qdbChan)
+		defer close(kafkaChan)
 		defer wg.Done()
 		for t := range tickerChan {
-			log.Printf("qdbChan: %v, kafkaChan: %v", len(qdbChan), len(kafkaChan))
+			// log.Printf("qdbChan: %v, kafkaChan: %v", len(qdbChan), len(kafkaChan))
 			qdbChan <- t
 			kafkaChan <- t
 		}
@@ -103,7 +103,7 @@ func main() {
 			buf = append(buf, t)
 			select {
 			case <-repeater.C:
-				err = tickerKafka.Write(ctx, buf...)
+				err := tickerKafka.Write(ctx, buf...)
 				if err != nil {
 					log.Fatal(err)
 				}
