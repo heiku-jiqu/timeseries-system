@@ -38,7 +38,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	checkQdbILPConn(*qdbAddr)
-	ctx := context.TODO()
+	ctx := context.Background()
 	sender, err := qdb.NewLineSender(ctx, qdb.WithAddress(*qdbAddr))
 	defer sender.Flush(ctx)
 	defer sender.Close()
@@ -111,6 +111,17 @@ func main() {
 			default:
 			}
 		}
+	}()
+
+	consumer := NewDefaultKafkaConsumer()
+	consumerCtx, consumerCancel := context.WithCancel(ctx)
+	defer consumerCancel()
+
+	wg.Add(1)
+	go func() {
+		defer consumer.Close()
+		defer wg.Done()
+		consumer.Start(consumerCtx)
 	}()
 
 	err = initDatastream(c)
