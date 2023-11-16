@@ -6,19 +6,16 @@ import (
 )
 
 func TestProcess(t *testing.T) {
+	calc := NewCalculated()
 	ch := make(chan Ticker)
-	defer close(ch)
-
-	calc := Calculated{
-		Avg: make(Average),
-	}
 	go calc.Process(ch)
 
-	ch <- Ticker{
+	price := float32(1000)
+	sampleTicker := Ticker{
 		Type:        "ticker",
 		Sequence:    68422014160,
 		ProductID:   "BTC-USD",
-		Price:       37514.82,
+		Price:       price,
 		Open24H:     35586.77,
 		Volume24H:   20560.37728398,
 		Low24H:      35586.76,
@@ -33,8 +30,24 @@ func TestProcess(t *testing.T) {
 		TradeID:     577961606,
 		LastSize:    0.00131924,
 	}
-	t.Run("Calculates average", func(t *testing.T) {
-		expect := float32(37514.82)
+	ch <- sampleTicker
+	close(ch)
+	t.Run("Calculates average, first entry", func(t *testing.T) {
+		expect := price
+		got := calc.Avg["BTC-USD"]
+		if got != expect {
+			t.Errorf("expected: %v, got %v", expect, got)
+		}
+	})
+
+	sampleTickerNext := sampleTicker
+	sampleTickerNext.Price = 0.0
+	ch = make(chan Ticker)
+	go calc.Process(ch)
+	ch <- sampleTickerNext
+	close(ch)
+	t.Run("Calculates average subsequent entries", func(t *testing.T) {
+		expect := price / 2
 		got := calc.Avg["BTC-USD"]
 		if got != expect {
 			t.Errorf("expected: %v, got %v", expect, got)
