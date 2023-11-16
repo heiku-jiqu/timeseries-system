@@ -1,10 +1,14 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type Calculated struct {
-	Avg          Average
-	Count        Count
+	avg          Average
+	count        Count
+	mu           sync.Mutex
 	existTracker map[string]struct{}
 }
 
@@ -16,26 +20,35 @@ type (
 
 func NewCalculated() *Calculated {
 	return &Calculated{
-		Avg:          make(Average),
-		Count:        make(Count),
+		avg:          make(Average),
+		count:        make(Count),
 		existTracker: make(map[string]struct{}),
 	}
+}
+
+// Get the productID's current price average.
+// Thread safe.
+func (c *Calculated) GetAvg(productID string) float32 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := c.avg[productID]
+	return out
 }
 
 // Updates Calculated.Avg continuously until tickerChan is closed
 func (c *Calculated) Process(tickerChan <-chan Ticker) {
 	for t := range tickerChan {
 		_, exist := c.existTracker[t.ProductID]
-		fmt.Printf("%v\n\n", exist)
-		c.Count[t.ProductID]++
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		c.count[t.ProductID]++
+
 		if exist {
-			fmt.Printf("updating avg\n")
-			c.Avg[t.ProductID] = c.Avg[t.ProductID] + (t.Price-c.Avg[t.ProductID])/float32(c.Count[t.ProductID])
+			c.avg[t.ProductID] = c.avg[t.ProductID] + (t.Price-c.avg[t.ProductID])/float32(c.count[t.ProductID])
 		} else {
-			fmt.Printf("init avg\n")
-			c.Avg[t.ProductID] = t.Price
+			c.avg[t.ProductID] = t.Price
 			c.existTracker[t.ProductID] = struct{}{}
 		}
-		fmt.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.Count, c.Avg, c.existTracker)
+		fmt.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker)
 	}
 }

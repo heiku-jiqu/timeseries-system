@@ -34,7 +34,7 @@ func TestProcess(t *testing.T) {
 	close(ch)
 	t.Run("Calculates average, first entry", func(t *testing.T) {
 		expect := price
-		got := calc.Avg["BTC-USD"]
+		got := calc.GetAvg("BTC-USD")
 		if got != expect {
 			t.Errorf("expected: %v, got %v", expect, got)
 		}
@@ -48,7 +48,7 @@ func TestProcess(t *testing.T) {
 	close(ch)
 	t.Run("Calculates average subsequent entries", func(t *testing.T) {
 		expect := price / 2
-		got := calc.Avg["BTC-USD"]
+		got := calc.GetAvg("BTC-USD")
 		if got != expect {
 			t.Errorf("expected: %v, got %v", expect, got)
 		}
