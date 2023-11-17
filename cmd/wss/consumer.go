@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -50,7 +51,7 @@ func (k *KafkaConsumer) Start(ctx context.Context) {
 
 // Continuously reads and parse messages and sends into k.ch
 func (k *KafkaConsumer) read(ctx context.Context) error {
-	defer fmt.Print("closing channel")
+	defer log.Print("closing channel")
 	defer close(k.ch)
 	for {
 		select {

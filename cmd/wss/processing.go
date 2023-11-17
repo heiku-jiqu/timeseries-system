@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"sync"
 )
 
@@ -60,5 +60,5 @@ func (c *Calculated) process(t Ticker) {
 		c.avg[t.ProductID] = t.Price
 		c.existTracker[t.ProductID] = struct{}{}
 	}
-	fmt.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker)
+	log.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker)
 }

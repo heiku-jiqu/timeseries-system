@@ -181,7 +181,7 @@ func initDatastream(c *websocket.Conn) error {
         }
     ]
 }`, *subscriptionChannel, `"`+strings.Join(productIDs, `","`)+`"`))
-	fmt.Printf("%s", string(jsonPayload))
+	log.Printf("%s", string(jsonPayload))
 
 	err := c.WriteMessage(websocket.TextMessage, jsonPayload)
 	return err
