@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	qdb "github.com/questdb/go-questdb-client/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,6 +37,8 @@ func main() {
 	}
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
+
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	checkQdbILPConn(*qdbAddr)
 	ctx := context.Background()
