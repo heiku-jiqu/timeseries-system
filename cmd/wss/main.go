@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	qdb "github.com/questdb/go-questdb-client/v2"
+	"github.com/rs/zerolog/log"
 )
 
 type JSONpayload struct {
@@ -45,7 +45,7 @@ func main() {
 
 	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		log.Printf("dial:", err)
 	}
 	defer c.Close()
 
@@ -88,7 +88,7 @@ func main() {
 		for t := range qdbChan {
 			err := tickerModel.Insert(t)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatal().Err(err).Send()
 			}
 		}
 	}()
@@ -105,7 +105,7 @@ func main() {
 			case <-repeater.C:
 				err := tickerKafka.Write(ctx, buf...)
 				if err != nil {
-					log.Fatal(err)
+					log.Fatal().Err(err).Send()
 				}
 				buf = buf[:0]
 			default:
@@ -127,7 +127,7 @@ func main() {
 
 	err = initDatastream(c)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
 	waitForInterrupt(c, done, interrupt)
@@ -136,7 +136,7 @@ func main() {
 func checkQdbILPConn(addr string) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		log.Fatalf("could not connect to QuestDB InfluxLineProtocol: %v", err)
+		log.Fatal().Err(err).Msg("could not connect to QuestDB InfluxLineProtocol")
 	}
 	defer conn.Close()
 }
@@ -150,7 +150,7 @@ func receiveDatastream(c *websocket.Conn, done chan<- struct{}, ch chan<- Ticker
 	for {
 		_, message, err := c.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			log.Error().Err(err).Msg("read error")
 			return
 		}
 
@@ -158,12 +158,12 @@ func receiveDatastream(c *websocket.Conn, done chan<- struct{}, ch chan<- Ticker
 		if strings.Contains(string(message), `"type":"ticker"`) {
 			ticker, err := ParseTickerJSON(message)
 			if err != nil {
-				log.Println("read:", err)
+				log.Error().Err(err).Msg("parse error")
 				return
 			}
 			ch <- ticker
 		} else {
-			log.Printf("recv: %s", message)
+			log.Info().Str("payload", string(message)).Msg("received payload from wss")
 		}
 	}
 }
@@ -195,13 +195,13 @@ func waitForInterrupt(c *websocket.Conn, done <-chan struct{}, interrupt <-chan 
 		case <-done:
 			return
 		case <-interrupt:
-			log.Println("interrupt")
+			log.Print("interrupt")
 
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
 			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				log.Println("write close:", err)
+				log.Error().Err(err).Msg("error closing wss")
 				return
 			}
 			select {

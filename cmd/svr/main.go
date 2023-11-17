@@ -3,18 +3,19 @@ package main
 import (
 	"expvar"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"runtime"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 const version = "1.0.0"
 
 type application struct {
-	errorLog *log.Logger
-	infoLog  *log.Logger
+	errorLog *zerolog.Logger
+	infoLog  *zerolog.Logger
 }
 
 func (app *application) logMiddleware(next http.Handler) http.Handler {
@@ -60,16 +61,16 @@ func main() {
 		return time.Now().Unix()
 	}))
 
-	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
-	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := zerolog.New(os.Stderr).With().Timestamp().Caller().Logger()
+	infoLog := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	app := application{
-		errorLog: errorLog,
-		infoLog:  infoLog,
+		errorLog: &errorLog,
+		infoLog:  &infoLog,
 	}
 	addr := "localhost:17171"
 	svr := http.Server{
-		Addr:         addr,
-		ErrorLog:     errorLog,
+		Addr: addr,
+		// ErrorLog:     errorLog,
 		Handler:      app.routes(),
 		ReadTimeout:  time.Second * 5,
 		WriteTimeout: time.Second * 5,
@@ -77,5 +78,5 @@ func main() {
 	}
 	infoLog.Printf("Starting server on %s", addr)
 	err := svr.ListenAndServe()
-	errorLog.Fatal(err)
+	errorLog.Fatal().Err(err).Send()
 }

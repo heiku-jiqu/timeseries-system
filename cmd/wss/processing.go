@@ -1,8 +1,9 @@
 package main
 
 import (
-	"log"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Calculated holds calculated statistics.
