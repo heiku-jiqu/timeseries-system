@@ -5,6 +5,9 @@ import (
 	"sync"
 )
 
+// Calculated holds calculated statistics.
+// Calculated.Process(channel) to start processing events from the channel.
+// Calculated.GetAvg() to get the average statistic.
 type Calculated struct {
 	avg          Average
 	count        Count
@@ -18,6 +21,7 @@ type (
 	Count   map[string]int
 )
 
+// NewCalculated creates a new Calcualted struct
 func NewCalculated() *Calculated {
 	return &Calculated{
 		avg:          make(Average),
@@ -35,20 +39,26 @@ func (c *Calculated) GetAvg(productID string) float32 {
 	return out
 }
 
-// Updates Calculated.Avg continuously until tickerChan is closed
+// Process starts consuming Tickers from tickerChan
+// and updates Calculated.Avg continuously until tickerChan is closed.
 func (c *Calculated) Process(tickerChan <-chan Ticker) {
 	for t := range tickerChan {
-		_, exist := c.existTracker[t.ProductID]
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		c.count[t.ProductID]++
-
-		if exist {
-			c.avg[t.ProductID] = c.avg[t.ProductID] + (t.Price-c.avg[t.ProductID])/float32(c.count[t.ProductID])
-		} else {
-			c.avg[t.ProductID] = t.Price
-			c.existTracker[t.ProductID] = struct{}{}
-		}
-		fmt.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker)
+		c.process(t)
 	}
+}
+
+// Function that updates statistics based on one Ticker
+func (c *Calculated) process(t Ticker) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, exist := c.existTracker[t.ProductID]
+	c.count[t.ProductID]++
+
+	if exist {
+		c.avg[t.ProductID] = c.avg[t.ProductID] + (t.Price-c.avg[t.ProductID])/float32(c.count[t.ProductID])
+	} else {
+		c.avg[t.ProductID] = t.Price
+		c.existTracker[t.ProductID] = struct{}{}
+	}
+	fmt.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker)
 }

@@ -44,24 +44,13 @@ func (k *KafkaConsumer) Start(ctx context.Context) {
 	// Read from kafka into channel k.ch
 	go k.read(ctx)
 
-	// process aggregate number of messages received
-	count := 0
-	var avg float64
-	firstAvg := true
-	for t := range k.ch {
-		count++
-		if firstAvg {
-			avg = float64(t.Price)
-			firstAvg = false
-		} else {
-			avg = avg + (float64(t.Price)-avg)/float64(count)
-		}
-		fmt.Printf("consumer:\tcount %d\tavg %f\n", count, avg)
-	}
+	calc := NewCalculated()
+	calc.Process(k.ch)
 }
 
 // Continuously reads and parse messages and sends into k.ch
 func (k *KafkaConsumer) read(ctx context.Context) error {
+	defer fmt.Print("closing channel")
 	defer close(k.ch)
 	for {
 		select {

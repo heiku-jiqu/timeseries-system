@@ -53,4 +53,25 @@ func TestProcess(t *testing.T) {
 			t.Errorf("expected: %v, got %v", expect, got)
 		}
 	})
+
+	t.Run("Doesn't block when multiple Tickers are sent", func(t *testing.T) {
+		// panic after 3 seconds time out if it gets stuck
+		go func() {
+			<-time.After(time.Second * 3)
+			panic("test timed out")
+		}()
+
+		defer func() {
+			if err := recover(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+
+		ch = make(chan Ticker)
+		go calc.Process(ch)
+		ch <- sampleTicker
+		ch <- sampleTicker
+		ch <- sampleTicker
+		close(ch)
+	})
 }

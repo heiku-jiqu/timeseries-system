@@ -119,6 +119,7 @@ func main() {
 
 	wg.Add(1)
 	go func() {
+		defer log.Print("Closing consumer")
 		defer consumer.Close()
 		defer wg.Done()
 		consumer.Start(consumerCtx)
