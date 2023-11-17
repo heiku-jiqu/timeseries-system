@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -36,20 +37,25 @@ func NewCalculated() *Calculated {
 func (c *Calculated) GetAvg(productID string) float32 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	out := c.avg[productID]
-	return out
+	return c.avg[productID]
+}
+
+func (c *Calculated) GetCount(productID string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.count[productID]
 }
 
 // Process starts consuming Tickers from tickerChan
 // and updates Calculated.Avg continuously until tickerChan is closed.
 func (c *Calculated) Process(tickerChan <-chan Ticker) {
 	for t := range tickerChan {
-		c.process(t)
+		c.updateFields(t)
 	}
 }
 
 // Function that updates statistics based on one Ticker
-func (c *Calculated) process(t Ticker) {
+func (c *Calculated) updateFields(t Ticker) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	_, exist := c.existTracker[t.ProductID]
@@ -61,5 +67,5 @@ func (c *Calculated) process(t Ticker) {
 		c.avg[t.ProductID] = t.Price
 		c.existTracker[t.ProductID] = struct{}{}
 	}
-	log.Printf("consumer:\tcount %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker)
+	log.Info().Msg(fmt.Sprintf("consumer: count %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker))
 }
