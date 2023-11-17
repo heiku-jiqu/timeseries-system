@@ -45,7 +45,7 @@ func main() {
 
 	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
-		log.Printf("dial:", err)
+		log.Error().Err(err).Msg("error dialing wss")
 	}
 	defer c.Close()
 
