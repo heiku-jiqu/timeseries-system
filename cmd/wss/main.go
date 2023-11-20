@@ -59,16 +59,10 @@ func main() {
 	defer kafkaWriter.Close()
 	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
 
-	tickerChan := make(chan Ticker, 200)
-	done := make(chan struct{})
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		receiveDatastream(c, done, tickerChan)
-	}()
+	done, tickerChan := receiveDatastream(c)
 
 	qdbChan := make(chan Ticker, 1)
 	kafkaChan := make(chan Ticker, 10)
@@ -144,31 +138,37 @@ func checkQdbILPConn(addr string) {
 	defer conn.Close()
 }
 
-// Receives to incoming messaages from `c`
+// Receives to incoming messages from `c`
 // Close done channel when finished receiving
 // Close ch channel when finished receiving
-func receiveDatastream(c *websocket.Conn, done chan<- struct{}, ch chan<- Ticker) {
-	defer close(done)
-	defer close(ch)
-	for {
-		_, message, err := c.ReadMessage()
-		if err != nil {
-			log.Error().Err(err).Msg("read error")
-			return
-		}
-
-		log.Printf("recv: %s", message)
-		if strings.Contains(string(message), `"type":"ticker"`) {
-			ticker, err := ParseTickerJSON(message)
+func receiveDatastream(c *websocket.Conn) (<-chan struct{}, <-chan Ticker) {
+	done := make(chan struct{})
+	ch := make(chan Ticker, 200)
+	go func() {
+		// close channels after finish reading
+		defer close(done)
+		defer close(ch)
+		for {
+			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Error().Err(err).Msg("parse error")
+				log.Error().Err(err).Msg("read error")
 				return
 			}
-			ch <- ticker
-		} else {
-			log.Info().Str("payload", string(message)).Msg("received payload from wss")
+
+			log.Printf("recv: %s", message)
+			if strings.Contains(string(message), `"type":"ticker"`) {
+				ticker, err := ParseTickerJSON(message)
+				if err != nil {
+					log.Error().Err(err).Msg("parse error")
+					return
+				}
+				ch <- ticker
+			} else {
+				log.Info().Str("payload", string(message)).Msg("received payload from wss")
+			}
 		}
-	}
+	}()
+	return done, ch
 }
 
 // Sends the initial websocket message to subscribe to tickers
