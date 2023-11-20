@@ -35,38 +35,36 @@ func main() {
 	if len(flag.Args()) > 0 {
 		productIDs = flag.Args()
 	}
+	// OS Interrupt handler
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
+	// Setup logger
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
+	// Setup QuestDB connection
 	checkQdbILPConn(*qdbAddr)
 	ctx := context.Background()
 	sender, err := qdb.NewLineSender(ctx, qdb.WithAddress(*qdbAddr))
 	defer sender.Flush(ctx)
 	defer sender.Close()
 
+	// Setup WebSocket
 	c, _, err := websocket.DefaultDialer.Dial(websocketURL, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("error dialing wss")
 	}
 	defer c.Close()
 
-	flushTicker := time.NewTicker(2 * time.Second)
-	defer flushTicker.Stop()
-	tickerModel := TickerModel{sender, flushTicker}
-	kafkaWriter := NewDefaultKafkaWriter()
-	defer kafkaWriter.Close()
-	tickerKafka := TickerKafka{NewDefaultKafkaWriter()}
-
+	// Setup waitgroup to wait for all goroutines before exiting main
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
 
 	done, tickerChan := receiveDatastream(c)
 
+	// Setup broadcasting from tickerChan to downstream channels
 	qdbChan := make(chan Ticker, 1)
 	kafkaChan := make(chan Ticker, 10)
-
 	wg.Add(1)
 	go func() {
 		defer close(qdbChan)
@@ -79,6 +77,10 @@ func main() {
 		}
 	}()
 
+	// Setup QuestDB Producer
+	flushTicker := time.NewTicker(2 * time.Second)
+	defer flushTicker.Stop()
+	tickerModel := TickerModel{sender, flushTicker}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -90,6 +92,10 @@ func main() {
 		}
 	}()
 
+	// Setup Kafka Producer
+	kafkaWriter := NewDefaultKafkaWriter()
+	defer kafkaWriter.Close()
+	tickerKafka := TickerKafka{kafkaWriter}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -110,23 +116,24 @@ func main() {
 		}
 	}()
 
+	// Setup Kafka Consumer
 	consumer := NewDefaultKafkaConsumer()
+	defer consumer.Close()
 	consumerCtx, consumerCancel := context.WithCancel(ctx)
 	defer consumerCancel()
-
 	wg.Add(1)
 	go func() {
-		defer log.Print("Closing consumer")
-		defer consumer.Close()
 		defer wg.Done()
 		consumer.Start(consumerCtx)
 	}()
 
+	// Start WebSocket data feed with data provider
 	err = initDatastream(c)
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
 
+	// Block until cancelled or WebSocket connection ends
 	waitForInterrupt(c, done, interrupt)
 }
 

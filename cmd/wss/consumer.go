@@ -33,6 +33,7 @@ func NewDefaultKafkaConsumer() *KafkaConsumer {
 }
 
 func (k *KafkaConsumer) Close() error {
+	log.Info().Msg("closing consumer")
 	err := k.r.Close()
 	return err
 }
