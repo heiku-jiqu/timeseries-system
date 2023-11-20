@@ -67,9 +67,9 @@ func main() {
 	kafkaChan := make(chan Ticker, 10)
 	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		defer close(qdbChan)
 		defer close(kafkaChan)
-		defer wg.Done()
 		for t := range tickerChan {
 			// log.Printf("qdbChan: %v, kafkaChan: %v", len(qdbChan), len(kafkaChan))
 			qdbChan <- t
@@ -99,21 +99,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		buf := make([]Ticker, 10)
-		repeater := time.NewTicker(2 * time.Second)
-
-		for t := range kafkaChan {
-			buf = append(buf, t)
-			select {
-			case <-repeater.C:
-				err := tickerKafka.Write(ctx, buf...)
-				if err != nil {
-					log.Fatal().Err(err).Send()
-				}
-				buf = buf[:0]
-			default:
-			}
-		}
+		tickerKafka.ReceiveAndFlush(ctx, kafkaChan)
 	}()
 
 	// Setup Kafka Consumer
