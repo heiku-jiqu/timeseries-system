@@ -67,5 +67,5 @@ func (c *Calculated) updateFields(t Ticker) {
 		c.avg[t.ProductID] = t.Price
 		c.existTracker[t.ProductID] = struct{}{}
 	}
-	log.Info().Msg(fmt.Sprintf("consumer: count %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker))
+	log.Debug().Msg(fmt.Sprintf("consumer: count %v\tavg %v\texist %v\n", c.count, c.avg, c.existTracker))
 }
