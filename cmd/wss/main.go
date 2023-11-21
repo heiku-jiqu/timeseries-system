@@ -131,12 +131,14 @@ func checkQdbILPConn(addr string) {
 	defer conn.Close()
 }
 
-// Receives to incoming messages from `c`
-// Close done channel when finished receiving
-// Close ch channel when finished receiving
-func receiveDatastream(c *websocket.Conn) (<-chan struct{}, <-chan Ticker) {
-	done := make(chan struct{})
-	ch := make(chan Ticker, 200)
+// Receives and parses incoming messages from `c`
+// and pushes parsed message into into ch.
+//
+// `done` and `ch` channels will be closed when
+// finished receiving from `c`.
+func receiveDatastream(c *websocket.Conn) (done chan struct{}, ch chan Ticker) {
+	done = make(chan struct{})
+	ch = make(chan Ticker, 200)
 	go func() {
 		// close channels after finish reading
 		defer close(done)
