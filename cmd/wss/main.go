@@ -55,12 +55,13 @@ func main() {
 		log.Error().Err(err).Msg("error dialing wss")
 	}
 	defer c.Close()
+	ws := &webSocketDatastream{c}
 
 	// Setup waitgroup to wait for all goroutines before exiting main
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
 
-	done, tickerChan := receiveDatastream(c)
+	done, tickerChan := ws.receiveDatastream()
 
 	// Setup broadcasting from tickerChan to downstream channels
 	qdbChan := make(chan Ticker, 1)
@@ -114,13 +115,13 @@ func main() {
 	}()
 
 	// Start WebSocket data feed with data provider
-	err = initDatastream(c)
+	err = ws.initDatastream()
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
 
 	// Block until cancelled or WebSocket connection ends
-	waitForInterrupt(c, done, interrupt)
+	ws.waitForInterrupt(done, interrupt)
 }
 
 func checkQdbILPConn(addr string) {
@@ -131,12 +132,16 @@ func checkQdbILPConn(addr string) {
 	defer conn.Close()
 }
 
+type webSocketDatastream struct {
+	c *websocket.Conn
+}
+
 // Receives and parses incoming messages from `c`
 // and pushes parsed message into into ch.
 //
 // `done` and `ch` channels will be closed when
 // finished receiving from `c`.
-func receiveDatastream(c *websocket.Conn) (done chan struct{}, ch chan Ticker) {
+func (ws *webSocketDatastream) receiveDatastream() (done chan struct{}, ch chan Ticker) {
 	done = make(chan struct{})
 	ch = make(chan Ticker, 200)
 	go func() {
@@ -144,7 +149,7 @@ func receiveDatastream(c *websocket.Conn) (done chan struct{}, ch chan Ticker) {
 		defer close(done)
 		defer close(ch)
 		for {
-			_, message, err := c.ReadMessage()
+			_, message, err := ws.c.ReadMessage()
 			if err != nil {
 				log.Error().Err(err).Msg("read error")
 				return
@@ -167,7 +172,7 @@ func receiveDatastream(c *websocket.Conn) (done chan struct{}, ch chan Ticker) {
 }
 
 // Sends the initial websocket message to subscribe to tickers
-func initDatastream(c *websocket.Conn) error {
+func (ws *webSocketDatastream) initDatastream() error {
 	jsonPayload := []byte(fmt.Sprintf(`{
     "type": "subscribe",
     "channels": [
@@ -181,13 +186,13 @@ func initDatastream(c *websocket.Conn) error {
 }`, *subscriptionChannel, `"`+strings.Join(productIDs, `","`)+`"`))
 	log.Printf("%s", string(jsonPayload))
 
-	err := c.WriteMessage(websocket.TextMessage, jsonPayload)
+	err := ws.c.WriteMessage(websocket.TextMessage, jsonPayload)
 	return err
 }
 
 // Waits for signal from `done` or `interrupt` before returning.
 // If `interrupted`, gracefully close `c`.
-func waitForInterrupt(c *websocket.Conn, done <-chan struct{}, interrupt <-chan os.Signal) {
+func (ws *webSocketDatastream) waitForInterrupt(done <-chan struct{}, interrupt <-chan os.Signal) {
 	for {
 		select {
 		case <-done:
@@ -197,7 +202,7 @@ func waitForInterrupt(c *websocket.Conn, done <-chan struct{}, interrupt <-chan 
 
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the server to close the connection.
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err := ws.c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				log.Error().Err(err).Msg("error closing wss")
 				return
