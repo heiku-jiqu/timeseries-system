@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rs/zerolog/log"
 	"github.com/segmentio/kafka-go"
@@ -59,6 +60,7 @@ func (k *KafkaConsumer) read(ctx context.Context) error {
 			return nil
 		default:
 			msg, err := k.r.FetchMessage(ctx)
+			log.Debug().Str("kafka-message-val", string(msg.Value)).Msg("read Kafka message")
 			if err != nil {
 				return err
 			}

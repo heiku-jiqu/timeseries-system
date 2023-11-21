@@ -42,7 +42,7 @@ func (k *TickerKafka) Write(ctx context.Context, tickers ...Ticker) error {
 
 // Receive Tickers from kafkaChan until it closes or ctx is done
 func (k *TickerKafka) ReceiveAndFlush(ctx context.Context, kafkaChan <-chan Ticker) {
-	buf := make([]Ticker, 10)
+	buf := make([]Ticker, 0, 10)
 	repeater := time.NewTicker(2 * time.Second) // flush interval
 
 	for t := range kafkaChan {

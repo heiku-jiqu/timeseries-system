@@ -58,6 +58,7 @@ func (c *Calculated) Process(tickerChan <-chan Ticker) {
 func (c *Calculated) updateFields(t Ticker) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	log.Debug().Str("payload", fmt.Sprintf("%v", t)).Msg("inserting into map")
 	_, exist := c.existTracker[t.ProductID]
 	c.count[t.ProductID]++
 

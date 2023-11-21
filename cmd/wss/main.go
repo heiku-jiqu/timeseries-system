@@ -148,7 +148,7 @@ func receiveDatastream(c *websocket.Conn) (<-chan struct{}, <-chan Ticker) {
 				return
 			}
 
-			log.Printf("recv: %s", message)
+			log.Debug().Msgf("recv: %s", message)
 			if strings.Contains(string(message), `"type":"ticker"`) {
 				ticker, err := ParseTickerJSON(message)
 				if err != nil {
